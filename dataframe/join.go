@@ -1,8 +1,7 @@
 package dataframe
 
 import (
-	//"fmt"
-	"strings"
+	"fmt"
 )
 
 type Direction int
@@ -14,6 +13,14 @@ const (
 	Outer
 )
 
+type rowMatch int
+
+const (
+	matchLess rowMatch = iota - 1
+	matchEq
+	matchGreater
+)
+
 // Join two DataFrames into one new one. Works by sorting the DataFrames and
 // merging the result, so essentially a MergeJoin.
 func Join(opts ...JoinOpt) DataFrame {
@@ -22,43 +29,59 @@ func Join(opts ...JoinOpt) DataFrame {
 	left := j.leftSorted()
 	right := j.rightSorted()
 
-	leftColumns := left.columns
-	rightColumns := right.columns
+	compareAt := compareAcross(j, left, right)
 
-	leftKeyIndices := df.colIndexes(j.leftOn)
-	rightKeyIndices := df.colIndexes(j.rightOn)
+	fmt.Println("Starting loop")
 
-	compareAt := func(lIdx, rIdx) int {
-		lIdx
-	}
+	var rStart, rIdx, lIdx int
+	for lIdx < left.Nrow() {
+		comparison := compareAt(lIdx, rIdx)
 
-	find := func(k key, start int) (begin, end int) {
-		//fmt.Printf("Looking for %v in right\n", k)
-		begin = -1
-		end = -1
-
-		for i := start; i < rightKeys.Nrow(); i++ {
-			rKey := keyForRight(i)
-
-			if k.eq(rKey) {
-				end = i
-				if begin == -1 {
-					begin = i
-				}
-			} else if rKey.gt(k) {
-				// Because these are ordered, we know that k can't possibly
-				// exist in rightKeys if rKey is greater than k.
-				return begin, i
-			}
+		if comparison == matchLess {
+			lIdx++
+			rIdx = rStart
 		}
-		return
-	}
 
-	var rStart, rIdx int
-	var lastKey key
-	for lIdx := 0; lIdx < left.Nrow(); lIdx++ {
+		fmt.Println(comparison, lIdx, rIdx)
+		if comparison == matchEq {
+			fmt.Println("Found a match!", comparison, lIdx, rIdx)
+		}
+
+		rIdx++
+		if comparison == matchGreater {
+			rStart = rIdx
+		}
+
 	}
 
 	// TODO: This is obviously wrong
 	return j.left
+}
+
+func compareAcross(j join, left, right DataFrame) func(int, int) rowMatch {
+	leftKeyIndices := j.left.colIndexes(j.leftOn)
+	rightKeyIndices := j.right.colIndexes(j.rightOn)
+
+	return func(lIdx, rIdx int) rowMatch {
+		for i := 0; i < len(leftKeyIndices); i++ {
+			l := left.columns[leftKeyIndices[i]].Elem(lIdx)
+			r := right.columns[rightKeyIndices[i]].Elem(rIdx)
+
+			if l.Greater(r) {
+				return 1
+			} else if l.Less(r) {
+				return -1
+			}
+		}
+
+		return 0
+	}
+}
+
+func (df DataFrame) colIndexes(cols []string) []int {
+	indexes := make([]int, len(cols))
+	for i, col := range cols {
+		indexes[i] = df.colIndex(col)
+	}
+	return indexes
 }
