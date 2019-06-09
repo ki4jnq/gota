@@ -2,6 +2,8 @@ package dataframe
 
 import (
 	"fmt"
+
+	"github.com/ki4jnq/gota/series"
 )
 
 type Direction int
@@ -28,11 +30,14 @@ func Join(opts ...JoinOpt) DataFrame {
 
 	left := j.leftSorted()
 	right := j.rightSorted()
+	final := j.buildJoinFrame()
 
 	compareAt := compareAcross(j, left, right)
+	add := addRows(left, right, &final)
 
 	fmt.Println("Starting loop")
 
+	var matchCount int
 	var rStart, rIdx, lIdx int
 	for lIdx < left.Nrow() {
 		comparison := compareAt(lIdx, rIdx)
@@ -42,20 +47,23 @@ func Join(opts ...JoinOpt) DataFrame {
 			rIdx = rStart
 		}
 
-		fmt.Println(comparison, lIdx, rIdx)
 		if comparison == matchEq {
-			fmt.Println("Found a match!", comparison, lIdx, rIdx)
+			matchCount++
+			//fmt.Println("Adding a row", lIdx, rIdx, matchCount)
+			add(lIdx, rIdx)
 		}
 
-		rIdx++
 		if comparison == matchGreater {
 			rStart = rIdx
 		}
 
+		if rIdx < right.Nrow() {
+			rIdx++
+		}
 	}
 
 	// TODO: This is obviously wrong
-	return j.left
+	return final
 }
 
 func compareAcross(j join, left, right DataFrame) func(int, int) rowMatch {
@@ -75,6 +83,24 @@ func compareAcross(j join, left, right DataFrame) func(int, int) rowMatch {
 		}
 
 		return 0
+	}
+}
+
+func addRows(left, right DataFrame, final *DataFrame) func(int, int) {
+	return func(lIdx, rIdx int) {
+		for i, col := range final.columns {
+			var e series.Element
+
+			if i < left.ncols {
+				e = left.columns[i].Elem(lIdx)
+			}
+			if i >= left.ncols {
+				e = right.columns[i-left.ncols].Elem(rIdx)
+			}
+
+			col.Append(e)
+		}
+		final.nrows++
 	}
 }
 

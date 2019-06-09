@@ -78,10 +78,10 @@ func (j join) rightSorted() DataFrame {
 	return j.sort(j.right, j.rightOn)
 }
 
+// sort returns the dataframe after sorting it by the columns specified. Does
+// nothing if `AssumeSorted` was set to true.
 func (j join) sort(df DataFrame, cols []string) DataFrame {
 	if j.sorted {
-		// Don't sort anything if we've been told to assume it's already
-		// sorted.
 		return df
 	}
 
@@ -91,4 +91,22 @@ func (j join) sort(df DataFrame, cols []string) DataFrame {
 	}
 
 	return df.Arrange(sorts...)
+}
+
+// buildJoinFrame builds an empty DataFrame to hold the result of joining left
+// and right.
+func (j join) buildJoinFrame() DataFrame {
+	df := DataFrame{}
+
+	for _, col := range j.left.columns {
+		df.columns = append(df.columns, col)
+		df.ncols++
+	}
+
+	for _, col := range j.right.columns {
+		df.columns = append(df.columns, col)
+		df.ncols++
+	}
+
+	return df
 }
