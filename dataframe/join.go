@@ -35,43 +35,45 @@ func Join(opts ...JoinOpt) DataFrame {
 	compareAt := compareAcross(j, left, right)
 	add := addRows(left, right, &final)
 
-	fmt.Println("Starting loop")
-
-	var matchCount int
 	var rStart, rIdx, lIdx int
-	for lIdx < left.Nrow() {
-		comparison := compareAt(lIdx, rIdx)
 
-		if comparison == matchLess {
+	for lIdx < left.nrows {
+		switch compareAt(lIdx, rIdx) {
+		case matchLess:
 			lIdx++
-			rIdx = rStart
-		}
-
-		if comparison == matchEq {
-			matchCount++
-			//fmt.Println("Adding a row", lIdx, rIdx, matchCount)
+			rIdx = rStart - 1
+		case matchEq:
 			add(lIdx, rIdx)
-		}
-
-		if comparison == matchGreater {
+		case matchGreater:
 			rStart = rIdx
 		}
 
-		if rIdx < right.Nrow() {
+		if rIdx < right.Nrow()-1 {
 			rIdx++
+		} else {
+			// TODO: I'm not sure that this is correct...
+			lIdx++
 		}
 	}
 
-	// TODO: This is obviously wrong
 	return final
 }
 
 func compareAcross(j join, left, right DataFrame) func(int, int) rowMatch {
-	leftKeyIndices := j.left.colIndexes(j.leftOn)
-	rightKeyIndices := j.right.colIndexes(j.rightOn)
+	leftKeyIndices := left.colIndexes(j.leftOn)
+	rightKeyIndices := right.colIndexes(j.rightOn)
 
 	return func(lIdx, rIdx int) rowMatch {
-		for i := 0; i < len(leftKeyIndices); i++ {
+		var i int
+		defer func() {
+			if e := recover(); e != nil {
+				fmt.Println("Panic in compareAcross", lIdx, rIdx, i)
+				fmt.Println(right.columns[rightKeyIndices[i]].Len())
+				panic(e)
+			}
+		}()
+
+		for i = 0; i < len(leftKeyIndices); i++ {
 			l := left.columns[leftKeyIndices[i]].Elem(lIdx)
 			r := right.columns[rightKeyIndices[i]].Elem(rIdx)
 
@@ -88,7 +90,7 @@ func compareAcross(j join, left, right DataFrame) func(int, int) rowMatch {
 
 func addRows(left, right DataFrame, final *DataFrame) func(int, int) {
 	return func(lIdx, rIdx int) {
-		for i, col := range final.columns {
+		for i := range final.columns {
 			var e series.Element
 
 			if i < left.ncols {
@@ -98,7 +100,7 @@ func addRows(left, right DataFrame, final *DataFrame) func(int, int) {
 				e = right.columns[i-left.ncols].Elem(rIdx)
 			}
 
-			col.Append(e)
+			final.columns[i].Append(e)
 		}
 		final.nrows++
 	}

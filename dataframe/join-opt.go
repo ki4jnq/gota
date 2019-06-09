@@ -87,7 +87,7 @@ func (j join) sort(df DataFrame, cols []string) DataFrame {
 
 	var sorts []Order
 	for _, col := range cols {
-		sorts = append(sorts, Order{col, false})
+		sorts = append(sorts, Sort(col))
 	}
 
 	return df.Arrange(sorts...)
@@ -99,12 +99,12 @@ func (j join) buildJoinFrame() DataFrame {
 	df := DataFrame{}
 
 	for _, col := range j.left.columns {
-		df.columns = append(df.columns, col)
+		df.columns = append(df.columns, col.Empty())
 		df.ncols++
 	}
 
 	for _, col := range j.right.columns {
-		df.columns = append(df.columns, col)
+		df.columns = append(df.columns, col.Empty())
 		df.ncols++
 	}
 

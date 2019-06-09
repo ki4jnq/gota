@@ -1,7 +1,6 @@
 package series
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -319,7 +318,7 @@ func (s Series) Slice(start, end int) Series {
 	}
 
 	if start < 0 || end > s.Len() {
-		s.Err = errors.New("Series.Slice: indices are out of range!")
+		s.Err = fmt.Errorf("Series.Slice: indices are out of range! start=%v end=%v", start, end)
 		return s
 	}
 
