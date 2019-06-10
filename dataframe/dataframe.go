@@ -13,7 +13,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/go-gota/gota/series"
+	"github.com/ki4jnq/gota/series"
 )
 
 // DataFrame is a data structure designed for operating on table like data (Such
@@ -287,6 +287,29 @@ func (df DataFrame) Subset(indexes series.Indexes) DataFrame {
 	if err != nil {
 		return DataFrame{Err: err}
 	}
+	return DataFrame{
+		columns: columns,
+		ncols:   ncols,
+		nrows:   nrows,
+	}
+}
+
+func (df DataFrame) Slice(start, end int) DataFrame {
+	if df.Err != nil {
+		return df
+	}
+
+	columns := make([]series.Series, df.ncols)
+	for i, column := range df.columns {
+		s := column.Slice(start, end)
+		columns[i] = s
+	}
+
+	nrows, ncols, err := checkColumnsDimensions(columns...)
+	if err != nil {
+		return DataFrame{Err: err}
+	}
+
 	return DataFrame{
 		columns: columns,
 		ncols:   ncols,

@@ -312,6 +312,53 @@ func (s Series) Subset(indexes Indexes) Series {
 	return ret
 }
 
+func (s Series) Slice(start, end int) Series {
+	if s.Err != nil {
+		return s
+	}
+
+	if start < 0 || end > s.Len() {
+		s.Err = fmt.Errorf("Series.Slice: indices are out of range! start=%v end=%v", start, end)
+		return s
+	}
+
+	final := Series{
+		Name: s.Name,
+		t:    s.t,
+	}
+
+	switch s.t {
+	case String:
+		elements := make(stringElements, end-start)
+		for i := 0; i < end-start; i++ {
+			elements[i] = s.elements.(stringElements)[start+i]
+		}
+		final.elements = elements
+	case Int:
+		elements := make(intElements, end-start)
+		for i := 0; i < end-start; i++ {
+			elements[i] = s.elements.(intElements)[start+i]
+		}
+		final.elements = elements
+	case Float:
+		elements := make(floatElements, end-start)
+		for i := 0; i < end-start; i++ {
+			elements[i] = s.elements.(floatElements)[start+i]
+		}
+		final.elements = elements
+	case Bool:
+		elements := make(boolElements, end-start)
+		for i := 0; i < end-start; i++ {
+			elements[i] = s.elements.(boolElements)[start+i]
+		}
+		final.elements = elements
+	default:
+		panic("unknown series type")
+	}
+
+	return final
+}
+
 // Set sets the values on the indexes of a Series and returns the reference
 // for itself. The original Series is modified.
 func (s Series) Set(indexes Indexes, newvalues Series) Series {
@@ -633,7 +680,12 @@ func (s Series) Order(reverse bool) []int {
 	if reverse {
 		srt = sort.Reverse(srt)
 	}
-	sort.Sort(srt)
+
+	// We have to use a Stable sort here to maintain the order of previous
+	// sorts. This requires higher algorithmic complexity, but multi-sorts
+	// on a DataFreame don't work right without this.
+	sort.Stable(srt)
+
 	var ret []int
 	for _, e := range ie {
 		ret = append(ret, e.index)
